@@ -102,7 +102,12 @@
       <artifactId>junit-jupiter-engine</artifactId>
       <version>${junit.version}</version>
       <scope>test</scope>
-    </dependency>  </dependencies>
+    </dependency>
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>8.3.0</version> <!-- Ou version récente -->
+    </dependency> </dependencies>
 
   <build>
     <plugins>
