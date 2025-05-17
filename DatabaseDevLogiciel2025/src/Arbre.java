@@ -2,6 +2,9 @@ import java.time.LocalDate;
 
 public class Arbre{
     public Utilisateur personne;
+    private Utilisateur [] parents;
+    private Utilisateur [] fils;
+    private Utilisateur [] partenaires;
     private static int nbvisiteur;
     private String visibilite;
     private static LocalDate datevisite;
@@ -34,5 +37,16 @@ public class Arbre{
 
     public void suppPersonne(Utilisateur p){ // Suppression d'utilisateur
         p.supprimerUtilisateur(p.getNom(),p.getPrenom(),p.getNaissance());
+    }
+    public void setParents(Utilisateur[] parents) { // Définir/Redéfinir le ou les parent(s) de l'utilisateur
+        this.parents = parents;
+    }
+
+    public void setFils(Utilisateur[] fils) { // Définir/Redéfinir le ou les fils de l'utilisateur
+        this.fils = fils;
+    }
+
+    public void setPartenaires(Utilisateur[] partenaires) { // Définir/Redéfinir le ou les partenaire(s) de l'utilisateur
+        this.partenaires = partenaires;
     }
 }

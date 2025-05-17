@@ -16,9 +16,7 @@ public class Utilisateur {
     private String mail;
     private String adresse;
     private String mdp;
-    private Utilisateur [] parents;
-    private Utilisateur [] fils;
-    private Utilisateur [] partenaires;
+    private String sexe;
     private boolean compte = false;
     private static final Map<String, Utilisateur> instances = new HashMap<>();
 
@@ -28,7 +26,7 @@ public class Utilisateur {
         compte = true;
     }
 
-    Utilisateur(String nom, String prenom, int age, LocalDate naissance, String nationalite, String numTel, String mail, String adresse, String mdp) { //Constructeur de base lors de création de compte
+    Utilisateur(String nom, String prenom, int age, String sexe, LocalDate naissance, String nationalite, String numTel, String mail, String adresse, String mdp) { //Constructeur de base lors de création de compte
         if(VerifEmail(mail)){
             System.err.println("Cet email est utilisé par un autre utilisateur, veuillez modifier votre email");
         }
@@ -39,7 +37,20 @@ public class Utilisateur {
         else {
             this.nom = nom;
             this.prenom = prenom;
-            this.age = age;
+            if(age<122) {
+                this.age = age;
+            }
+            else{
+                System.err.println("L'âge introduit est supérieur à 122 et cela n'est pas possible");
+                System.exit(0);
+            }
+            if(sexe.equalsIgnoreCase("femme")||sexe.equalsIgnoreCase("homme")) {
+                this.sexe = sexe;
+            }
+            else{
+                System.err.println("Le sexe de l'utilisateur "+nom+" "+prenom+" n'est pas normal");
+                System.exit(0);
+            }
             this.etat = "vivant";
             this.naissance = naissance;
             this.nationalite = nationalite;
@@ -52,18 +63,25 @@ public class Utilisateur {
         }
     }
 
-    Utilisateur(String nom, String prenom, int age, String etat, LocalDate naissance, LocalDate mort, String nationalite) { // Constructeur d'ajout d'un membre dans l'arbre généalogique avec date de mort
+    Utilisateur(String nom, String prenom, int age, String sexe, String etat, LocalDate naissance, LocalDate mort, String nationalite) { // Constructeur d'ajout d'un membre dans l'arbre généalogique avec date de mort
         if(VerifUtilisateur(nom,prenom,naissance)){
             System.out.println("L'utilisateur "+nom+" "+prenom+" existe");
         }
         else {
             this.nom = nom;
             this.prenom = prenom;
-            if(age>122) {
+            if(age<122) {
                 this.age = age;
             }
             else{
                 System.err.println("L'âge de l'utilisateur "+nom+" "+prenom+"  introduit est supérieur à 122 et cela n'est pas possible");
+                System.exit(0);
+            }
+            if(sexe.equalsIgnoreCase("femme")||sexe.equalsIgnoreCase("homme")) {
+                this.sexe = sexe;
+            }
+            else{
+                System.err.println("Le sexe de l'utilisateur "+nom+" "+prenom+" n'est pas normal");
                 System.exit(0);
             }
             if(etat.equalsIgnoreCase("mort")) {
@@ -80,18 +98,25 @@ public class Utilisateur {
         }
     }
 
-    Utilisateur(String nom, String prenom, int age, String etat, LocalDate naissance, String nationalite) { // Constructeur d'ajout d'un membre dans l'arbre généalogique sans date de mort
+    Utilisateur(String nom, String prenom, int age, String sexe, String etat, LocalDate naissance, String nationalite) { // Constructeur d'ajout d'un membre dans l'arbre généalogique sans date de mort
         if(VerifUtilisateur(nom,prenom,naissance)){
             System.out.println("L'utilisateur "+nom+" "+prenom+" existe");
         }
         else {
             this.nom = nom;
             this.prenom = prenom;
-            if(age>122) {
+            if(age<122) {
                 this.age = age;
             }
             else{
                 System.err.println("L'âge introduit est supérieur à 122 et cela n'est pas possible");
+                System.exit(0);
+            }
+            if(sexe.equalsIgnoreCase("femme")||sexe.equalsIgnoreCase("homme")) {
+                this.sexe = sexe;
+            }
+            else{
+                System.err.println("Le sexe de l'utilisateur "+nom+" "+prenom+" n'est pas normal");
                 System.exit(0);
             }
             if(etat.equalsIgnoreCase("mort")||etat.equalsIgnoreCase("vivant")) {
@@ -253,15 +278,4 @@ public class Utilisateur {
         this.mdp = mdp;
     }
 
-    public void setParents(Utilisateur[] parents) { // Définir/Redéfinir le ou les parent(s) de l'utilisateur
-        this.parents = parents;
-    }
-
-    public void setFils(Utilisateur[] fils) { // Définir/Redéfinir le ou les fils de l'utilisateur
-        this.fils = fils;
-    }
-
-    public void setPartenaires(Utilisateur[] partenaires) { // Définir/Redéfinir le ou les partenaire(s) de l'utilisateur
-        this.partenaires = partenaires;
-    }
 }
