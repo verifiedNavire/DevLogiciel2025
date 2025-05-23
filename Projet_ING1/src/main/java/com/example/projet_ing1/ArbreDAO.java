@@ -129,6 +129,84 @@ public class ArbreDAO {
             e.printStackTrace();
         }
     }
+
+    public void chargerFamillePourUtilisateurVisibilite(int userId) {
+        personnes.clear();
+        relations.clear();
+
+        Set<Integer> ids = new HashSet<>();
+        Queue<Integer> queue = new LinkedList<>();
+        ids.add(userId);
+        queue.add(userId);
+
+        try (Connection conn = Database.getConnection()) {
+            // BFS sur les relations (parents et enfants)
+            while (!queue.isEmpty()) {
+                int courant = queue.poll();
+
+                // Ajoute les parents
+                PreparedStatement ps = conn.prepareStatement("SELECT id_parent FROM lien_parent WHERE id_enfant = ?");
+                ps.setInt(1, courant);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    int parentId = rs.getInt("id_parent");
+                    if (ids.add(parentId)) queue.add(parentId);
+                }
+
+                // Ajoute les enfants
+                ps = conn.prepareStatement("SELECT id_enfant FROM lien_parent WHERE id_parent = ?");
+                ps.setInt(1, courant);
+                rs = ps.executeQuery();
+                while (rs.next()) {
+                    int enfantId = rs.getInt("id_enfant");
+                    if (ids.add(enfantId)) queue.add(enfantId);
+                }
+            }
+
+            // Charge les personnes concernées
+            if (ids.isEmpty()) return;
+            String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+            PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id IN (" + placeholders + ")");
+            int i = 1;
+            for (int id : ids) ps.setInt(i++, id);
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class),
+                        rs.getString("visibilite")
+                );
+                if(p.getVisibilite().equals("public")) {
+                    personnes.put(p.getId(), p);
+                }
+                else{
+                    p.setNom("Private");
+                    p.setPrenom("Private");
+                    personnes.put(p.getId(), p);
+                }
+            }
+
+            // Charge les liens parents-enfants uniquement sur ce sous-ensemble
+            ps = conn.prepareStatement("SELECT * FROM lien_parent WHERE id_enfant IN (" + placeholders + ")");
+            i = 1;
+            for (int id : ids) ps.setInt(i++, id);
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                int parentId = rs.getInt("id_parent");
+                int enfantId = rs.getInt("id_enfant");
+                relations.computeIfAbsent(parentId, k -> new ArrayList<>()).add(enfantId);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
     /**
      * Calcule et met à jour le niveau générationnel (entier) de chaque personne dans la base.
      * Le niveau 0 est attribué aux ancêtres (personnes sans parents).
@@ -581,6 +659,40 @@ public class ArbreDAO {
             while (rs.next()) {
                 int personneId = rs.getInt("id");
 
+                // Pour chaque membre, charge récursivement sa famille complète
+                if (!dejaVus.contains(personneId)) {
+                    chargerFamillePourUtilisateurVisibilite(personneId); // exploite la logique existante
+                    dejaVus.addAll(personnes.keySet()); // évite les doublons entre sous-familles
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void chargerFamillePourArbreAdmin(int idArbre) {
+        personnes.clear();
+        relations.clear();
+
+        try (Connection conn = Database.getConnection()) {
+            // Vérification de l'existence de l’arbre (optionnel mais propre)
+            PreparedStatement ps = conn.prepareStatement("SELECT id FROM arbre WHERE id = ?");
+            ps.setInt(1, idArbre);
+            ResultSet rs = ps.executeQuery();
+            if (!rs.next()) {
+                System.out.println("Arbre avec id " + idArbre + " non trouvé.");
+                return;
+            }
+
+            // Pour chaque personne rattachée à cet arbre
+            ps = conn.prepareStatement("SELECT id FROM personne WHERE id_arbre = ?");
+            ps.setInt(1, idArbre);
+            rs = ps.executeQuery();
+
+            Set<Integer> dejaVus = new HashSet<>();
+            while (rs.next()) {
+                int personneId = rs.getInt("id");
                 // Pour chaque membre, charge récursivement sa famille complète
                 if (!dejaVus.contains(personneId)) {
                     chargerFamillePourUtilisateur(personneId); // exploite la logique existante

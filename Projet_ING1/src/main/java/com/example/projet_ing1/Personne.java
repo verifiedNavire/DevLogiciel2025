@@ -17,6 +17,8 @@ public class Personne {
     private boolean inscrit;           // Vrai si la personne a un compte utilisateur
     private String photo;              // Nom du fichier image associé à la personne
     private Integer niveau;            // Niveau généalogique (0 = racine, 1 = enfants, etc.)
+    private String visibilite;
+    private Integer idarbre;
 
     // === Constructeurs ===
 
@@ -33,6 +35,29 @@ public class Personne {
         this.inscrit = inscrit;
         this.photo = photo;
         this.niveau = niveau;
+    }
+
+    /**
+     * Constructeur complet avec tous les champs et identifiant de l'arbre
+     */
+    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo, Integer niveau, String visibilite) {
+        this.id = id;
+        this.nom = nom;
+        this.prenom = prenom;
+        this.dateNaissance = dateNaissance;
+        this.motDePasse = motDePasse;
+        this.inscrit = inscrit;
+        this.photo = photo;
+        this.niveau = niveau;
+        this.visibilite = visibilite;
+    }
+
+    /**
+     * Constructeur qui récupère l'identifiant de l'utilisateur et identifiant de l'arbre
+     */
+    public Personne(int id, int idarbre) {
+        this.id = id;
+        this.idarbre = idarbre;
     }
 
     /**
@@ -100,6 +125,10 @@ public class Personne {
         return prenom + " " + nom;
     }
 
+    public String getVisibilite() { return visibilite; }
+
+    public Integer getIdarbre() { return idarbre; }
+
     // === Setters ===
 
     public void setId(int id) {
@@ -133,6 +162,8 @@ public class Personne {
     public void setNiveau(Integer niveau) {
         this.niveau = niveau;
     }
+
+    public void setVisibilite(String visibilite) { this.visibilite = visibilite; }
 
     /**
      * Représentation textuelle d’une personne (utilisée dans les ComboBox par exemple).

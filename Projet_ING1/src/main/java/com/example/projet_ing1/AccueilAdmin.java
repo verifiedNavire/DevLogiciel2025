@@ -56,7 +56,7 @@ public class AccueilAdmin extends Application {
         // Action du bouton "Voir tous les arbres" : ouverture de la fenêtre d'affichage global
         btnVoirArbres.setOnAction(e -> {
             try {
-                new AffichageTousArbres().start(new Stage());
+                new AffichageTousArbresAdmin().start(new Stage());
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
