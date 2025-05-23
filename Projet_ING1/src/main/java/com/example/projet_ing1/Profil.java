@@ -41,6 +41,11 @@ public class Profil extends Application {
         TextField prenomField = new TextField();
         TextField photoField = new TextField(); // contient uniquement le nom du fichier
         ImageView imageView = new ImageView(); // affiche la photo actuelle
+        ToggleGroup visibiliteGroup = new ToggleGroup(); // Ajout de boutons radio pour changer sa visibilité pour les autres personnes
+        RadioButton privateRadio = new RadioButton("private");
+        RadioButton publicRadio = new RadioButton("public");
+        privateRadio.setToggleGroup(visibiliteGroup);
+        publicRadio.setToggleGroup(visibiliteGroup);
 
         // Chargement des informations de l’utilisateur connecté
         try (Connection conn = Database.getConnection()) {
@@ -104,11 +109,13 @@ public class Profil extends Application {
         Button enregistrer = new Button("Enregistrer");
         enregistrer.setOnAction(e -> {
             try (Connection conn = Database.getConnection()) {
-                PreparedStatement ps = conn.prepareStatement("UPDATE personne SET nom = ?, prenom = ?, photo = ? WHERE id = ?");
+                PreparedStatement ps = conn.prepareStatement("UPDATE personne SET nom = ?, prenom = ?, photo = ?, visibilite = ? WHERE id = ?");
                 ps.setString(1, nomField.getText());
                 ps.setString(2, prenomField.getText());
                 ps.setString(3, photoField.getText());
-                ps.setInt(4, userId);
+                String visibiliteChoisie = ((RadioButton) visibiliteGroup.getSelectedToggle()).getText().toLowerCase();
+                ps.setString(4, visibiliteChoisie);
+                ps.setInt(5, userId);
                 ps.executeUpdate();
 
                 alert("Succès", "Profil mis à jour !");
@@ -135,6 +142,8 @@ public class Profil extends Application {
                 new Label("Nom du fichier photo :"), photoField,
                 choisirPhotoBtn,
                 imageView,
+                new Label("Visibilité du profil :"),
+                new HBox(10, privateRadio, publicRadio),
                 boutons);
         layout.setPadding(new Insets(20));
         layout.setAlignment(Pos.CENTER);
