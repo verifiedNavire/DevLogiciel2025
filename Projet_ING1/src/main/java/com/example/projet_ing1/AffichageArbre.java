@@ -18,6 +18,8 @@ import javafx.stage.Stage;
 import javafx.animation.FadeTransition;
 import javafx.util.Duration;
 import javafx.scene.Group;
+import javafx.scene.transform.Scale;
+
 
 import java.util.*;
 
@@ -27,6 +29,7 @@ import java.util.*;
  * ou de consulter les arbres publics.
  */
 public class AffichageArbre extends Application {
+    private Scale arbreScale = new Scale(1, 1, 0, 0);
 
     @Override
     public void start(Stage primaryStage) {
@@ -49,9 +52,47 @@ public class AffichageArbre extends Application {
         Button profilButton = createModernButton("Mon profil");
         Button deconnecterButton = createModernButton("Se Déconnecter");
 
+
+	ComboBox<String> filtreCombo = new ComboBox<>();
+        filtreCombo.getItems().addAll("Tous", "Enfants", "Grands-parents", "Frères/Sœurs", "Parents" , "Petits-enfants");
+        filtreCombo.setValue("Tous");
+        filtreCombo.setPrefHeight(40);        // hauteur similaire aux boutons
+        filtreCombo.setPrefWidth(150);        // largeur fixe confortable
+        filtreCombo.setStyle(
+                "-fx-background-radius: 10;" +
+                        "-fx-border-radius: 10;" +
+                        "-fx-border-color: #999;" +
+                        "-fx-border-width: 1;" +
+                        "-fx-background-color: linear-gradient(#f9f9f9, #dcdcdc);" +
+                        "-fx-padding: 0 10 0 10;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-font-size: 14px;"
+        );
+
+// Bouton Rechercher
+        Button rechercherButton = createModernButton("Rechercher");
+
         // Zone principale d'affichage de l'arbre
         Pane arbrePane = new Pane();
-        arbrePane.setPrefHeight(500);
+        arbrePane.setPrefHeight(500);	
+
+	Slider zoomSlider = new Slider(0.5, 3.0, 1.0); // zoom de 0.5 à 3, valeur initiale 1
+        zoomSlider.setShowTickLabels(true);
+        zoomSlider.setShowTickMarks(true);
+        zoomSlider.setMajorTickUnit(0.5);
+        zoomSlider.setBlockIncrement(0.1);
+        zoomSlider.setPrefWidth(150);
+
+	zoomSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
+            double scale = newVal.doubleValue();
+            arbreScale.setX(scale);
+            arbreScale.setY(scale);
+        });
+
+	 HBox zoomBox = new HBox(10, new Label("Zoom:"), zoomSlider);
+        zoomBox.setAlignment(Pos.CENTER);
+        zoomBox.setPadding(new Insets(10));
+
 
         // Affichage de tous les arbres accessibles
         arbresToutLeMondeButton.setOnAction(e -> {
@@ -87,6 +128,39 @@ public class AffichageArbre extends Application {
                 ex.printStackTrace();
             }
         });
+	// Action sur le bouton rechercher
+        rechercherButton.setOnAction(e -> {
+            int idPersonne = Session.getUserId(); // Récupère l'ID courant (adapter si besoin)
+            String filtre = filtreCombo.getValue();
+
+            ArbreDAO dao = new ArbreDAO();
+            List<Personne> resultat = new ArrayList<>();
+
+            switch (filtre) {
+                case "Enfants":
+                    resultat = dao.getEnfantsPersonne(idPersonne);
+                    break;
+                case "Grands-parents":
+                    resultat = dao.getGrandsParentsPersonne(idPersonne);
+                    break;
+                case "Frères/Sœurs":
+                    resultat = dao.getFreresSoeursPersonne(idPersonne);
+                    break;
+                case "Parents":
+                    resultat = dao.getParentsPersonne(idPersonne);
+                    break;
+                case "Petits-enfants":
+                    resultat = dao.getPetitsEnfantsPersonne(idPersonne);
+                    break;
+                case "Tous":
+                default:
+                    dao.chargerFamillePourUtilisateur(idPersonne);
+                    resultat = new ArrayList<>(dao.personnes.values());
+                    break;
+            }
+
+            afficherResultatsFiltre(resultat, arbrePane);
+        });
 
         // Ajout d’un proche à l’arbre
         ajouterPersonneButton.setOnAction(e -> {
@@ -107,7 +181,7 @@ public class AffichageArbre extends Application {
         });
 
         // Barre de boutons
-        HBox buttonBox = new HBox(10, rafraichirButton, monArbreButton, ajouterPersonneButton, supprimerPersonneButton, arbresToutLeMondeButton, profilButton, deconnecterButton);
+        HBox buttonBox = new HBox(10, rafraichirButton, monArbreButton, ajouterPersonneButton, supprimerPersonneButton,filtreCombo,rechercherButton, arbresToutLeMondeButton, profilButton, deconnecterButton);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
         // Barre supérieure avec le titre et les actions
@@ -152,6 +226,8 @@ public class AffichageArbre extends Application {
         scrollPane.setFitToHeight(true);
 
         Group arbreGroup = new Group();
+        arbreGroup.getTransforms().add(arbreScale);
+
 
         double spacingY = 180;
         double spacingX = 180;
@@ -273,6 +349,44 @@ public class AffichageArbre extends Application {
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         pane.getChildren().add(scrollPane);
+    }
+
+	 private void afficherResultatsFiltre(List<Personne> personnes, Pane pane) {
+        pane.getChildren().clear();
+
+        Group groupe = new Group();
+
+        double spacingX = 180;
+        double spacingY = 180;
+        double nodeWidth = 120;
+        double nodeHeight = 140;
+
+        double startX = 50;
+        double startY = 50;
+
+        double x = startX;
+        double y = startY;
+
+        int count = 0;
+
+        for (Personne p : personnes) {
+            VBox node = creerLabel(p);
+            appliquerStyleCarte(node);
+            node.setLayoutX(x);
+            node.setLayoutY(y);
+            groupe.getChildren().add(node);
+
+            x += nodeWidth + spacingX;
+            count++;
+
+            // Passer à la ligne suivante tous les 5 éléments (par ex)
+            if (count % 5 == 0) {
+                x = startX;
+                y += nodeHeight + spacingY;
+            }
+        }
+
+        pane.getChildren().add(groupe);
     }
 
     /**
