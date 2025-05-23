@@ -735,4 +735,176 @@ public class ArbreDAO {
 
         return idArbres;
     }
+    public List<Personne> getEnfantsPersonne(int idParent) {
+        List<Personne> enfants = new ArrayList<>();
+        String query = """
+        SELECT p.* FROM lien_parent lp
+        JOIN personne p ON lp.id_enfant = p.id
+        WHERE lp.id_parent = ?
+    """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, idParent);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class)
+                );
+                enfants.add(p);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return enfants;
+    }
+
+    public List<Personne> getGrandsParentsPersonne(int idPersonne) {
+        List<Personne> grandsParents = new ArrayList<>();
+        String query = """
+        SELECT gp.* FROM lien_parent lp1
+        JOIN lien_parent lp2 ON lp1.id_parent = lp2.id_enfant
+        JOIN personne gp ON lp2.id_parent = gp.id
+        WHERE lp1.id_enfant = ?
+    """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, idPersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class)
+                );
+                grandsParents.add(p);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return grandsParents;
+    }
+    public List<Personne> getFreresSoeursPersonne(int idPersonne) {
+        List<Personne> freresSoeurs = new ArrayList<>();
+        String query = """
+        SELECT DISTINCT p.* FROM lien_parent lp1
+        JOIN lien_parent lp2 ON lp1.id_parent = lp2.id_parent
+        JOIN personne p ON lp2.id_enfant = p.id
+        WHERE lp1.id_enfant = ?
+          AND lp2.id_enfant != ?
+    """;
+
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, idPersonne);
+            stmt.setInt(2, idPersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class)
+                );
+                freresSoeurs.add(p);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return freresSoeurs;
+    }
+
+    public List<Personne> getParentsPersonne(int idPersonne) {
+        List<Personne> parents = new ArrayList<>();
+        String query = """
+        SELECT p.* FROM lien_parent lp
+        JOIN personne p ON lp.id_parent = p.id
+        WHERE lp.id_enfant = ?
+    """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, idPersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class)
+                );
+                parents.add(p);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return parents;
+
+
+    }
+
+    public List<Personne> getPetitsEnfantsPersonne(int idPersonne) {
+        List<Personne> petitsEnfants = new ArrayList<>();
+        String query = """
+        SELECT pe.* FROM lien_parent lp1
+        JOIN lien_parent lp2 ON lp1.id_enfant = lp2.id_parent
+        JOIN personne pe ON lp2.id_enfant = pe.id
+        WHERE lp1.id_parent = ?
+    """;
+        try (Connection conn = Database.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+
+            stmt.setInt(1, idPersonne);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Personne p = new Personne(
+                        rs.getInt("id"),
+                        rs.getString("nom"),
+                        rs.getString("prenom"),
+                        rs.getDate("date_naissance"),
+                        rs.getString("mot_de_passe"),
+                        rs.getBoolean("inscrit"),
+                        rs.getString("photo"),
+                        rs.getObject("niveau", Integer.class)
+                );
+                petitsEnfants.add(p);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return petitsEnfants;
+    }
+
+}
+
 }
