@@ -15,16 +15,23 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.UUID;
 
+/**
+ * Interface réservée aux administrateurs pour gérer les demandes d’inscription en attente.
+ * Les utilisateurs apparaissent dans un tableau avec deux options : Valider (avec envoi de mail) ou Refuser.
+ */
 public class ValidationAdmin extends Application {
 
+    // Table JavaFX pour afficher les utilisateurs en attente
     private TableView<UtilisateurEnAttente> table = new TableView<>();
+
+    // Liste observable qui sera affichée dans le tableau
     private ObservableList<UtilisateurEnAttente> data = FXCollections.observableArrayList();
 
     @Override
     public void start(Stage stage) {
-        // creation d un tableau avec la liste des personnes en attente
         stage.setTitle("Validation des adhésions");
 
+        // --- Colonnes du tableau ---
         TableColumn<UtilisateurEnAttente, String> nomCol = new TableColumn<>("Nom");
         nomCol.setCellValueFactory(new PropertyValueFactory<>("nom"));
 
@@ -40,11 +47,14 @@ public class ValidationAdmin extends Application {
         TableColumn<UtilisateurEnAttente, Button> refuserCol = new TableColumn<>("Refuser");
         refuserCol.setCellValueFactory(new PropertyValueFactory<>("refuserBtn"));
 
+        // Ajout des colonnes à la table
         table.getColumns().addAll(nomCol, prenomCol, emailCol, validerCol, refuserCol);
-        table.setItems(data);
+        table.setItems(data); // liaison avec la liste observable
 
+        // Charge les utilisateurs en attente depuis la base
         chargerUtilisateurs();
 
+        // Layout principal avec padding
         VBox vbox = new VBox(10, new Label("Utilisateurs en attente de validation :"), table);
         vbox.setPadding(new Insets(20));
 
@@ -52,8 +62,12 @@ public class ValidationAdmin extends Application {
         stage.show();
     }
 
+    /**
+     * Charge les utilisateurs dont le statut est "en_attente" depuis la base de données.
+     * Pour chacun, on crée les boutons d’action avec leur comportement.
+     */
     private void chargerUtilisateurs() {
-        data.clear();
+        data.clear(); // reset de la liste avant de recharger
         try (Connection conn = Database.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
                     "SELECT * FROM utilisateur WHERE statut = 'en_attente'"
@@ -66,12 +80,14 @@ public class ValidationAdmin extends Application {
                 String prenom = rs.getString("prenom");
                 String email = rs.getString("email");
 
+                // Création des boutons avec leurs actions
                 Button validerBtn = new Button("✅ Valider");
                 Button refuserBtn = new Button("❌ Refuser");
 
                 validerBtn.setOnAction(e -> validerUtilisateur(id, prenom, email));
                 refuserBtn.setOnAction(e -> refuserUtilisateur(id));
 
+                // Ajoute une ligne dans la liste observable
                 data.add(new UtilisateurEnAttente(id, nom, prenom, email, validerBtn, refuserBtn));
             }
 
@@ -80,11 +96,17 @@ public class ValidationAdmin extends Application {
         }
     }
 
+    /**
+     * Lorsqu’un utilisateur est validé, on génère deux codes (public et privé), on met à jour la BDD
+     * et on envoie un e-mail de confirmation.
+     */
     private void validerUtilisateur(int userId, String prenom, String email) {
         try (Connection conn = Database.getConnection()) {
+            // Génération de deux codes uniques
             String codePublic = "PUB-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
             String codePrive = "PRV-" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
 
+            // Mise à jour en base
             PreparedStatement ps = conn.prepareStatement(
                     "UPDATE utilisateur SET statut = 'valide', code_public = ?, code_prive = ? WHERE id = ?"
             );
@@ -93,17 +115,20 @@ public class ValidationAdmin extends Application {
             ps.setInt(3, userId);
             ps.executeUpdate();
 
-            // ✉️ Envoi du mail
+            // Envoi d’un mail à l’utilisateur avec ses codes
             EnvoiMail.envoyerCodes(email, prenom, codePublic, codePrive);
 
             showAlert("Succès", "Utilisateur validé et e-mail envoyé !");
-            chargerUtilisateurs();
+            chargerUtilisateurs(); // recharge la liste
         } catch (Exception e) {
             e.printStackTrace();
             showAlert("Erreur", "Impossible de valider l'utilisateur.");
         }
     }
 
+    /**
+     * Refuse un utilisateur (statut mis à "refuse") et recharge la table.
+     */
     private void refuserUtilisateur(int userId) {
         try (Connection conn = Database.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
@@ -113,13 +138,16 @@ public class ValidationAdmin extends Application {
             ps.executeUpdate();
 
             showAlert("Refusé", "L'utilisateur a été refusé.");
-            chargerUtilisateurs();
+            chargerUtilisateurs(); // mise à jour de la vue
         } catch (Exception e) {
             e.printStackTrace();
             showAlert("Erreur", "Impossible de refuser l'utilisateur.");
         }
     }
 
+    /**
+     * Affiche une alerte simple à l'écran avec un message.
+     */
     private void showAlert(String titre, String msg) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(titre);

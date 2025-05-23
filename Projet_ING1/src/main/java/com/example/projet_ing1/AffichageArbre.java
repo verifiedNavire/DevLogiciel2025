@@ -1,5 +1,6 @@
 package com.example.projet_ing1;
 
+// Imports JavaFX pour les composants graphiques
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -20,18 +21,26 @@ import javafx.scene.Group;
 
 import java.util.*;
 
+/**
+ * Classe principale d'affichage de l'arbre généalogique personnel.
+ * Permet à l'utilisateur d'ajouter, supprimer, visualiser son arbre,
+ * ou de consulter les arbres publics.
+ */
 public class AffichageArbre extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        // Titre de la fenêtre
         Label title = new Label("Arbre Généalogique Pro++");
         title.setTextFill(Color.WHITE);
         title.setFont(Font.font("Arial", FontWeight.BOLD, 20));
 
+        // Conteneur du titre aligné à gauche
         HBox titleBox = new HBox(title);
         titleBox.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(titleBox, Priority.ALWAYS);
 
+        // Boutons du menu
         Button rafraichirButton = createModernButton("↻");
         Button monArbreButton = createModernButton("Mon arbre");
         Button ajouterPersonneButton = createModernButton("Ajouter un proche");
@@ -40,11 +49,12 @@ public class AffichageArbre extends Application {
         Button profilButton = createModernButton("Mon profil");
         Button deconnecterButton = createModernButton("Se Déconnecter");
 
+        // Zone principale d'affichage de l'arbre
         Pane arbrePane = new Pane();
         arbrePane.setPrefHeight(500);
 
-
-        arbresToutLeMondeButton.setOnAction(e ->{
+        // Affichage de tous les arbres accessibles
+        arbresToutLeMondeButton.setOnAction(e -> {
             try {
                 new AffichageTousArbres().start(new Stage());
             } catch (Exception ex) {
@@ -52,23 +62,24 @@ public class AffichageArbre extends Application {
             }
         });
 
+        // Réinitialise l'arbre affiché à l'écran
         rafraichirButton.setOnAction(e -> {
             arbrePane.getChildren().clear();
             afficherArbreDepuisBdd(arbrePane);
         });
 
+        // Déconnexion de l'utilisateur
         deconnecterButton.setOnAction(e -> {
             Session.clear();
-            ((Stage) deconnecterButton.getScene().getWindow()).close(); // ferme la fenêtre actuelle
+            ((Stage) deconnecterButton.getScene().getWindow()).close();
             try {
-                new LoginApp().start(new Stage()); // relance la page de connexion
+                new LoginApp().start(new Stage());
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         });
 
-
-
+        // Accès au profil de l'utilisateur
         profilButton.setOnAction(e -> {
             try {
                 new Profil().start(new Stage());
@@ -77,6 +88,7 @@ public class AffichageArbre extends Application {
             }
         });
 
+        // Ajout d’un proche à l’arbre
         ajouterPersonneButton.setOnAction(e -> {
             try {
                 new AjoutPersonne().start(new Stage());
@@ -84,6 +96,8 @@ public class AffichageArbre extends Application {
                 ex.printStackTrace();
             }
         });
+
+        // Suppression d’une personne de l’arbre
         supprimerPersonneButton.setOnAction(e -> {
             try {
                 new SupprimerPersonne().start(new Stage());
@@ -92,28 +106,35 @@ public class AffichageArbre extends Application {
             }
         });
 
-
-
+        // Barre de boutons
         HBox buttonBox = new HBox(10, rafraichirButton, monArbreButton, ajouterPersonneButton, supprimerPersonneButton, arbresToutLeMondeButton, profilButton, deconnecterButton);
         buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
+        // Barre supérieure avec le titre et les actions
         HBox navbar = new HBox(30, titleBox, buttonBox);
         navbar.setPadding(new Insets(15));
         navbar.setStyle("-fx-background-color: #333;");
 
+        // Affichage initial de l'arbre au lancement
         afficherArbreDepuisBdd(arbrePane);
 
+        // Conteneur global
         VBox root = new VBox(navbar, arbrePane);
         root.setStyle("-fx-background-color: #f0f0f0;");
         VBox.setVgrow(arbrePane, Priority.ALWAYS);
 
+        // Construction et affichage de la scène
         Scene scene = new Scene(root, 1200, 700);
         primaryStage.setTitle("Affichage Arbre Généalogique");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
+    /**
+     * Charge les données de l'arbre depuis la base et les affiche graphiquement.
+     */
     private void afficherArbreDepuisBdd(Pane pane) {
+        // Chargement du fond visuel
         Image backgroundImage = new Image(getClass().getResource("/images/fond_parchemin.jpg").toExternalForm());
         BackgroundSize backgroundSize = new BackgroundSize(1.0, 1.0, true, true, false, false);
         BackgroundImage background = new BackgroundImage(backgroundImage, BackgroundRepeat.NO_REPEAT, BackgroundRepeat.NO_REPEAT, BackgroundPosition.CENTER, backgroundSize);
@@ -140,6 +161,7 @@ public class AffichageArbre extends Application {
         Map<Integer, VBox> noeuds = new HashMap<>();
         Map<Integer, List<Personne>> personnesParNiveau = new TreeMap<>();
 
+        // Regroupe les personnes par niveau générationnel
         for (Personne p : dao.personnes.values()) {
             if (p.getNiveau() != null) {
                 personnesParNiveau.computeIfAbsent(p.getNiveau(), k -> new ArrayList<>()).add(p);
@@ -149,6 +171,7 @@ public class AffichageArbre extends Application {
         int minNiveau = personnesParNiveau.keySet().stream().min(Integer::compareTo).orElse(0);
         int maxNiveau = personnesParNiveau.keySet().stream().max(Integer::compareTo).orElse(0);
 
+        // Positionne les nœuds dans le groupe en fonction de leur génération
         for (int niveau = minNiveau; niveau <= maxNiveau; niveau++) {
             List<Personne> personnes = personnesParNiveau.getOrDefault(niveau, Collections.emptyList());
             if (personnes.isEmpty()) continue;
@@ -171,6 +194,7 @@ public class AffichageArbre extends Application {
 
         Set<String> couplesDessines = new HashSet<>();
 
+        // Création des lignes entre les couples et leurs enfants
         for (Map.Entry<Integer, List<Integer>> entry : dao.relations.entrySet()) {
             int parent1Id = entry.getKey();
             List<Integer> enfants = entry.getValue();
@@ -205,7 +229,6 @@ public class AffichageArbre extends Application {
                 double x1 = parent1Box.getLayoutX() + nodeWidth / 2;
                 double x2 = parent2Box != null ? parent2Box.getLayoutX() + nodeWidth / 2 : x1;
 
-                // ✅ NE PAS TRACER le couple si c’est juste un lien artificiel
                 if (enfantsCommuns.size() < 1 || couplesDessines.contains(coupleKey)) continue;
 
                 if (parent2Box != null) {
@@ -238,7 +261,7 @@ public class AffichageArbre extends Application {
             }
         }
 
-
+        // Étend la surface scrollable pour éviter les coupures
         Region bounds = new Region();
         bounds.setMinSize(2000, (maxNiveau - minNiveau + 2) * spacingY);
         bounds.setMouseTransparent(true);
@@ -252,6 +275,9 @@ public class AffichageArbre extends Application {
         pane.getChildren().add(scrollPane);
     }
 
+    /**
+     * Génère l'affichage d'une personne (nom, naissance, image) sous forme de boîte.
+     */
     private VBox creerLabel(Personne p) {
         VBox box = new VBox(5);
         Label nomPrenom = new Label(p.getNomComplet());
@@ -275,16 +301,17 @@ public class AffichageArbre extends Application {
         box.getChildren().addAll(photoView, nomPrenom, naissance);
         box.setPrefSize(120, 140);
 
-        // 🌟 Couleur de fond dynamique
         String fond = p.isInscrit()
-                ? "rgba(173,255,47,0.9)"    // vert clair
-                : "rgba(255,102,102,0.9)"; // rouge doux
+                ? "rgba(173,255,47,0.9)"
+                : "rgba(255,102,102,0.9)";
 
         box.setStyle("-fx-border-color: black; -fx-background-color: " + fond + "; -fx-padding: 5px; -fx-alignment: center;");
         return box;
     }
 
-
+    /**
+     * Applique un style visuel moderne à un nœud avec effet visuel.
+     */
     private void appliquerStyleCarte(VBox box) {
         box.setStyle(""
                 + "-fx-background-color: rgba(255,255,255,0.85);"
@@ -301,6 +328,9 @@ public class AffichageArbre extends Application {
         ft.play();
     }
 
+    /**
+     * Crée un bouton standardisé avec style uniforme.
+     */
     private Button createModernButton(String text) {
         Button button = new Button(text);
         button.setFont(Font.font("Arial", FontWeight.BOLD, 14));

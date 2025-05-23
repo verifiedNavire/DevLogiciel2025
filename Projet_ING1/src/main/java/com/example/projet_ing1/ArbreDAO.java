@@ -5,21 +5,28 @@ import java.util.*;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 
+/**
+ * Classe d'accès aux données (DAO) liée à la gestion des arbres généalogiques.
+ * Permet de charger les personnes, leurs relations, et de manipuler les arbres.
+ */
 public class ArbreDAO {
 
-    // Map contenant toutes les personnes de l'arbre (clé = id, valeur = Personne)
+    // Contient toutes les personnes chargées en mémoire (clé = id de la personne)
     public Map<Integer, Personne> personnes = new HashMap<>();
 
-    // Map des relations parent → liste des enfants
+    // Contient toutes les relations parent → enfants
     public Map<Integer, List<Integer>> relations = new HashMap<>();
 
-    // 🔄 Charge toutes les personnes de la base + les relations parents-enfants
+    /**
+     * Charge toutes les personnes et toutes les relations parent-enfant de la base.
+     * Utile pour un affichage global sans restriction (admin par exemple).
+     */
     public void chargerDepuisBase() {
         try (Connection conn = Database.getConnection()) {
-            // Récupère toutes les personnes
+
+            // Récupération de toutes les personnes dans la base
             PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne");
             ResultSet rs = ps.executeQuery();
-
             while (rs.next()) {
                 Personne p = new Personne(
                         rs.getInt("id"),
@@ -30,13 +37,14 @@ public class ArbreDAO {
                 personnes.put(p.getId(), p);
             }
 
-            // Récupère toutes les relations parent-enfant
+            // Récupération de tous les liens parent-enfant
             ps = conn.prepareStatement("SELECT id_parent, id_enfant FROM lien_parent");
             rs = ps.executeQuery();
-
             while (rs.next()) {
                 int parentId = rs.getInt("id_parent");
                 int enfantId = rs.getInt("id_enfant");
+
+                // Pour chaque parent, ajoute l’enfant à la liste des enfants
                 relations.computeIfAbsent(parentId, k -> new ArrayList<>()).add(enfantId);
             }
 
@@ -45,22 +53,27 @@ public class ArbreDAO {
         }
     }
 
-    // 🔄 Charge uniquement les personnes et relations liées à un utilisateur
+    /**
+     * Charge uniquement la sous-famille (ancêtres + descendants) d’un utilisateur.
+     * Utilise un parcours en largeur (BFS) pour explorer les parents et enfants.
+     */
     public void chargerFamillePourUtilisateur(int userId) {
         personnes.clear();
         relations.clear();
 
+        // Ensemble des ID rencontrés et file d’attente pour exploration
         Set<Integer> ids = new HashSet<>();
         Queue<Integer> queue = new LinkedList<>();
         ids.add(userId);
         queue.add(userId);
 
         try (Connection conn = Database.getConnection()) {
-            // BFS sur les relations (parents et enfants)
+
+            // Parcours BFS : explore parents et enfants jusqu’à épuisement
             while (!queue.isEmpty()) {
                 int courant = queue.poll();
 
-                // Ajoute les parents
+                // Recherche les parents du noeud courant
                 PreparedStatement ps = conn.prepareStatement("SELECT id_parent FROM lien_parent WHERE id_enfant = ?");
                 ps.setInt(1, courant);
                 ResultSet rs = ps.executeQuery();
@@ -69,7 +82,7 @@ public class ArbreDAO {
                     if (ids.add(parentId)) queue.add(parentId);
                 }
 
-                // Ajoute les enfants
+                // Recherche les enfants du noeud courant
                 ps = conn.prepareStatement("SELECT id_enfant FROM lien_parent WHERE id_parent = ?");
                 ps.setInt(1, courant);
                 rs = ps.executeQuery();
@@ -79,8 +92,9 @@ public class ArbreDAO {
                 }
             }
 
-            // Charge les personnes concernées
+            // Une fois tous les ID collectés, on récupère leurs données
             if (ids.isEmpty()) return;
+
             String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
             PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id IN (" + placeholders + ")");
             int i = 1;
@@ -100,7 +114,7 @@ public class ArbreDAO {
                 personnes.put(p.getId(), p);
             }
 
-            // Charge les liens parents-enfants uniquement sur ce sous-ensemble
+            // On ne charge que les relations entre personnes de cette sous-famille
             ps = conn.prepareStatement("SELECT * FROM lien_parent WHERE id_enfant IN (" + placeholders + ")");
             i = 1;
             for (int id : ids) ps.setInt(i++, id);
@@ -115,16 +129,20 @@ public class ArbreDAO {
             e.printStackTrace();
         }
     }
-
-    // 🔄 Met à jour les niveaux générationnels des personnes dans la base
+    /**
+     * Calcule et met à jour le niveau générationnel (entier) de chaque personne dans la base.
+     * Le niveau 0 est attribué aux ancêtres (personnes sans parents).
+     * Les enfants ont un niveau = niveau de leur parent + 1.
+     * Une seconde phase remonte les niveaux si incohérence (correction ascendante).
+     */
     public void mettreAJourNiveaux() {
         try (Connection conn = Database.getConnection()) {
 
-            // Réinitialise tous les niveaux
+            // Étape 1 : on réinitialise tous les niveaux à NULL
             PreparedStatement reset = conn.prepareStatement("UPDATE personne SET niveau = NULL");
             reset.executeUpdate();
 
-            // Recherche les ancêtres (sans parents)
+            // Étape 2 : on identifie les racines (personnes sans parents)
             PreparedStatement ancetres = conn.prepareStatement("""
                 SELECT id FROM personne 
                 WHERE id NOT IN (SELECT id_enfant FROM lien_parent)
@@ -134,13 +152,14 @@ public class ArbreDAO {
             Queue<Integer> queue = new LinkedList<>();
             Map<Integer, Integer> niveaux = new HashMap<>();
 
+            // Les racines sont au niveau 0
             while (rs.next()) {
                 int id = rs.getInt("id");
-                niveaux.put(id, 0); // niveau racine
+                niveaux.put(id, 0);
                 queue.add(id);
             }
 
-            // Propagation descendante
+            // Étape 3 : propagation descendante — BFS pour affecter les niveaux
             while (!queue.isEmpty()) {
                 int parent = queue.poll();
                 int niveauParent = niveaux.get(parent);
@@ -153,6 +172,7 @@ public class ArbreDAO {
                     int enfant = enfantsRs.getInt("id_enfant");
                     int niveauEnfant = niveauParent + 1;
 
+                    // Met à jour le niveau de l’enfant s’il est plus bas que ce qu’on avait
                     if (!niveaux.containsKey(enfant) || niveaux.get(enfant) < niveauEnfant) {
                         niveaux.put(enfant, niveauEnfant);
                         queue.add(enfant);
@@ -160,7 +180,7 @@ public class ArbreDAO {
                 }
             }
 
-            // Propagation vers le haut pour corriger les incohérences
+            // Étape 4 : propagation ascendante pour corriger les incohérences éventuelles
             boolean modifie;
             do {
                 modifie = false;
@@ -170,6 +190,7 @@ public class ArbreDAO {
                     int enfant = rs.getInt("id_enfant");
                     int parent = rs.getInt("id_parent");
 
+                    // On doit s'assurer que le parent est au moins un niveau au-dessus
                     if (!niveaux.containsKey(enfant)) continue;
 
                     int niveauEnfant = niveaux.get(enfant);
@@ -180,9 +201,9 @@ public class ArbreDAO {
                         modifie = true;
                     }
                 }
-            } while (modifie);
+            } while (modifie); // On répète tant qu’on fait des corrections
 
-            // Met les deux parents d’un même enfant au même niveau
+            // Étape 5 : égaliser les niveaux des deux parents d’un même enfant (si besoin)
             PreparedStatement parentsPair = conn.prepareStatement("""
                 SELECT id_enfant FROM lien_parent 
                 GROUP BY id_enfant 
@@ -198,27 +219,30 @@ public class ArbreDAO {
 
                 List<Integer> parents = new ArrayList<>();
                 while (prs.next()) parents.add(prs.getInt("id_parent"));
+
                 if (parents.size() == 2 && niveaux.containsKey(parents.get(0))) {
                     int niveau = niveaux.get(parents.get(0));
                     niveaux.put(parents.get(1), niveau);
                 }
             }
 
-            // Mise à jour effective dans la base
+            // Étape 6 : mise à jour effective dans la base de données
             PreparedStatement update = conn.prepareStatement("UPDATE personne SET niveau = ? WHERE id = ?");
             for (Map.Entry<Integer, Integer> entry : niveaux.entrySet()) {
                 update.setInt(1, entry.getValue());
                 update.setInt(2, entry.getKey());
-                update.addBatch();
+                update.addBatch(); // prépare la requête
             }
-            update.executeBatch();
+            update.executeBatch(); // exécute toutes les mises à jour en une seule fois
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
-    // 🔍 Renvoie l'autre parent d’un enfant
+    /**
+     * Retourne l'ID de l'autre parent d’un enfant, différent de celui fourni.
+     * Utile pour retrouver les couples de parents.
+     */
     public int getAutreParent(int enfantId, int parentCourantId) {
         try (Connection conn = Database.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
@@ -233,10 +257,13 @@ public class ArbreDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return -1;
+        return -1; // Aucun autre parent trouvé
     }
 
-    // 🔍 Charge les données d'une personne depuis son ID
+    /**
+     * Charge les informations complètes d'une personne à partir de son identifiant.
+     * Retourne un objet Personne rempli ou null si l’ID est introuvable.
+     */
     public static Personne getPersonneParId(int id) {
         String query = "SELECT * FROM personne WHERE id = ?";
         try (Connection conn = Database.getConnection();
@@ -256,13 +283,16 @@ public class ArbreDAO {
                 p.setNiveau(rs.getObject("niveau", Integer.class));
                 return p;
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    // 📦 Retourne la liste des enfants d’un parent
+    /**
+     * Retourne la liste des IDs des enfants d’un parent donné.
+     */
     public static List<Integer> getEnfants(int idParent) {
         List<Integer> enfants = new ArrayList<>();
         String query = "SELECT id_enfant FROM lien_parent WHERE id_parent = ?";
@@ -279,24 +309,30 @@ public class ArbreDAO {
         return enfants;
     }
 
-    // ➕ Crée une personne "inconnue" (non inscrite) dans la base
+    /**
+     * Insère une personne "inconnue" dans la base de données.
+     * Incrémente automatiquement un numéro pour éviter les doublons.
+     */
     public static int ajouterPersonneInconnue(String nomBase, String prenomBase) {
         int compteur = 1;
         String nom, prenom;
 
         try (Connection conn = Database.getConnection()) {
-            // Cherche un nom/prenom libre
             while (true) {
                 nom = nomBase + " " + compteur;
                 prenom = prenomBase + " " + compteur;
+
+                // Vérifie que le nom/prénom ne sont pas déjà utilisés
                 PreparedStatement check = conn.prepareStatement("SELECT COUNT(*) FROM personne WHERE nom = ? AND prenom = ?");
                 check.setString(1, nom);
                 check.setString(2, prenom);
                 ResultSet rs = check.executeQuery();
-                if (rs.next() && rs.getInt(1) == 0) break; // nom disponible
+
+                if (rs.next() && rs.getInt(1) == 0) break; // nom libre
                 compteur++;
             }
 
+            // Insertion de la nouvelle personne inconnue
             PreparedStatement stmt = conn.prepareStatement(
                     "INSERT INTO personne (nom, prenom, date_naissance, mot_de_passe, inscrit, photo) VALUES (?, ?, NULL, NULL, 0, 'defaut.png')",
                     Statement.RETURN_GENERATED_KEYS);
@@ -310,59 +346,13 @@ public class ArbreDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return -1;
+        return -1; // Erreur
     }
 
-
-    public void chargerFamilleParIds(Set<Integer> ids) {
-        personnes.clear();
-        relations.clear();
-
-        if (ids == null || ids.isEmpty()) return;
-
-        try (Connection conn = Database.getConnection()) {
-            String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
-
-            PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id IN (" + placeholders + ")");
-            int i = 1;
-            for (int id : ids) ps.setInt(i++, id);
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                Personne p = new Personne(
-                        rs.getInt("id"),
-                        rs.getString("nom"),
-                        rs.getString("prenom"),
-                        rs.getDate("date_naissance"),
-                        rs.getString("mot_de_passe"),
-                        rs.getBoolean("inscrit"),
-                        rs.getString("photo"),
-                        rs.getObject("niveau", Integer.class)
-                );
-                personnes.put(p.getId(), p);
-            }
-
-            ps = conn.prepareStatement("SELECT * FROM lien_parent WHERE id_enfant IN (" + placeholders + ")");
-            i = 1;
-            for (int id : ids) ps.setInt(i++, id);
-            rs = ps.executeQuery();
-
-            while (rs.next()) {
-                int parent = rs.getInt("id_parent");
-                int enfant = rs.getInt("id_enfant");
-                if (ids.contains(parent)) {
-                    relations.computeIfAbsent(parent, k -> new ArrayList<>()).add(enfant);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-
-
-    // ➕ Ajoute un lien parent-enfant en évitant les doublons
+    /**
+     * Ajoute un lien parent-enfant dans la base s’il n’existe pas déjà.
+     * Vérifie le type de lien (père ou mère) pour empêcher les doublons.
+     */
     public static void ajouterLienParent(int idEnfant, int idParent, String typeLien) {
         String checkQuery = "SELECT COUNT(*) FROM lien_parent WHERE id_enfant = ? AND type_lien = ?";
         String insertQuery = "INSERT INTO lien_parent (id_enfant, id_parent, type_lien) VALUES (?, ?, ?)";
@@ -373,8 +363,9 @@ public class ArbreDAO {
             checkStmt.setInt(1, idEnfant);
             checkStmt.setString(2, typeLien);
             ResultSet rs = checkStmt.executeQuery();
+
+            // Ne rien faire si un parent de ce type est déjà défini
             if (rs.next() && rs.getInt(1) > 0) {
-                // Empêche d’ajouter un parent si un du même type existe
                 Alert alert = new Alert(AlertType.WARNING);
                 alert.setTitle("Impossible d'ajouter");
                 alert.setHeaderText("Parent déjà existant");
@@ -383,6 +374,7 @@ public class ArbreDAO {
                 return;
             }
 
+            // Sinon : insertion du lien
             try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
                 insertStmt.setInt(1, idEnfant);
                 insertStmt.setInt(2, idParent);
@@ -394,18 +386,28 @@ public class ArbreDAO {
             e.printStackTrace();
         }
     }
+    /**
+     * Retourne les enfants communs à deux parents (utilisé pour tracer un lien de couple).
+     * On considère qu’un enfant est commun si l’autre parent correspond.
+     */
     public List<Integer> getEnfantsCommun(int parent1Id, int parent2Id) {
         List<Integer> enfantsCommuns = new ArrayList<>();
         List<Integer> enfantsParent1 = relations.getOrDefault(parent1Id, new ArrayList<>());
+
         for (int enfantId : enfantsParent1) {
             int autreParent = getAutreParent(enfantId, parent1Id);
             if (autreParent == parent2Id) {
                 enfantsCommuns.add(enfantId);
             }
         }
+
         return enfantsCommuns;
     }
 
+    /**
+     * Retourne l’ensemble des membres de la famille reliés à une personne donnée (BFS).
+     * Utilisé pour afficher les membres d’un même arbre sans doublons.
+     */
     public Map<Integer, Personne> getFamille(int userId) {
         Map<Integer, Personne> map = new HashMap<>();
         Set<Integer> ids = new HashSet<>();
@@ -417,6 +419,7 @@ public class ArbreDAO {
             while (!q.isEmpty()) {
                 int id = q.poll();
 
+                // Ajout des parents
                 PreparedStatement ps1 = conn.prepareStatement("SELECT id_parent FROM lien_parent WHERE id_enfant = ?");
                 ps1.setInt(1, id);
                 ResultSet r1 = ps1.executeQuery();
@@ -425,6 +428,7 @@ public class ArbreDAO {
                     if (ids.add(p)) q.add(p);
                 }
 
+                // Ajout des enfants
                 PreparedStatement ps2 = conn.prepareStatement("SELECT id_enfant FROM lien_parent WHERE id_parent = ?");
                 ps2.setInt(1, id);
                 ResultSet r2 = ps2.executeQuery();
@@ -432,9 +436,9 @@ public class ArbreDAO {
                     int e = r2.getInt("id_enfant");
                     if (ids.add(e)) q.add(e);
                 }
-
             }
 
+            // Chargement des données complètes
             if (!ids.isEmpty()) {
                 String in = String.join(",", Collections.nCopies(ids.size(), "?"));
                 PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id IN (" + in + ")");
@@ -463,14 +467,17 @@ public class ArbreDAO {
         return map;
     }
 
-    // 🔍 Si un parent a déjà un enfant, retourne l'autre parent associé à cet enfant
+    /**
+     * Recherche un éventuel partenaire existant avec qui un parent a déjà un enfant.
+     * Cela permet de faire respecter la monogamie (1 seul partenaire pour tous les enfants).
+     */
     public Integer getPartenaireExistant(int idParent) {
         String sql = """
-        SELECT lp2.id_parent FROM lien_parent lp1
-        JOIN lien_parent lp2 ON lp1.id_enfant = lp2.id_enfant
-        WHERE lp1.id_parent = ? AND lp2.id_parent != ?
-        LIMIT 1
-    """;
+            SELECT lp2.id_parent FROM lien_parent lp1
+            JOIN lien_parent lp2 ON lp1.id_enfant = lp2.id_enfant
+            WHERE lp1.id_parent = ? AND lp2.id_parent != ?
+            LIMIT 1
+        """;
 
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -478,22 +485,28 @@ public class ArbreDAO {
             ps.setInt(2, idParent);
             ResultSet rs = ps.executeQuery();
             if (rs.next()) {
-                return rs.getInt("id_parent");
+                return rs.getInt("id_parent"); // retourne l’autre parent
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null; // aucun partenaire existant
+        return null; // aucun partenaire trouvé
     }
 
-    //Vérifie si un parent peut avoir un enfant avec un second partenaire
+    /**
+     * Vérifie si deux parents sont compatibles au regard des enfants existants.
+     * Compatible = pas de partenaire existant ou partenaire actuel = second parent proposé.
+     */
     public boolean estPartenaireCompatible(int parent1, int parent2) {
         Integer partenaireExistant = getPartenaireExistant(parent1);
         return partenaireExistant == null || partenaireExistant == parent2;
     }
 
-
-
+    /**
+     * Retourne les IDs des ascendants d’un individu, via une exploration ascendante récursive.
+     * Permet d’étudier les lignées et contraintes d’héritage éventuelles.
+     */
     public static List<Integer> getAscendants(int id) {
         Set<Integer> visited = new HashSet<>();
         Queue<Integer> queue = new LinkedList<>();
@@ -514,6 +527,7 @@ public class ArbreDAO {
                     }
                 }
             }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -521,6 +535,9 @@ public class ArbreDAO {
         return ascendants;
     }
 
+    /**
+     * Retourne tous les parents d’un enfant (maximum 2).
+     */
     public static List<Integer> getParents(int idEnfant) {
         List<Integer> parents = new ArrayList<>();
         try (Connection conn = Database.getConnection()) {
@@ -536,12 +553,17 @@ public class ArbreDAO {
         return parents;
     }
 
+    /**
+     * Charge toute la famille associée à un arbre spécifique (en lisant les `id_arbre` dans la table `personne`).
+     * Utile pour afficher tous les arbres validés par des utilisateurs.
+     */
     public void chargerFamillePourArbre(int idArbre) {
         personnes.clear();
         relations.clear();
 
         try (Connection conn = Database.getConnection()) {
-            // 1. Vérifier que l'arbre existe (optionnel, à garder si tu veux une vérification explicite)
+
+            // Vérification de l'existence de l’arbre (optionnel mais propre)
             PreparedStatement ps = conn.prepareStatement("SELECT id FROM arbre WHERE id = ?");
             ps.setInt(1, idArbre);
             ResultSet rs = ps.executeQuery();
@@ -550,7 +572,7 @@ public class ArbreDAO {
                 return;
             }
 
-            // 2. Récupérer tous les IDs des personnes de cet arbre
+            // Pour chaque personne rattachée à cet arbre
             ps = conn.prepareStatement("SELECT id FROM personne WHERE id_arbre = ?");
             ps.setInt(1, idArbre);
             rs = ps.executeQuery();
@@ -559,13 +581,10 @@ public class ArbreDAO {
             while (rs.next()) {
                 int personneId = rs.getInt("id");
 
-                // Pour éviter de charger plusieurs fois les mêmes personnes
+                // Pour chaque membre, charge récursivement sa famille complète
                 if (!dejaVus.contains(personneId)) {
-                    // Appeler la méthode existante
-                    chargerFamillePourUtilisateur(personneId);
-
-                    // Mémoriser toutes les personnes chargées par cette branche
-                    dejaVus.addAll(personnes.keySet());
+                    chargerFamillePourUtilisateur(personneId); // exploite la logique existante
+                    dejaVus.addAll(personnes.keySet()); // évite les doublons entre sous-familles
                 }
             }
 
@@ -574,17 +593,21 @@ public class ArbreDAO {
         }
     }
 
+    /**
+     * Récupère tous les identifiants d’arbres disponibles dans la base.
+     * Ne retient que les arbres liés à des utilisateurs valides et approuvés.
+     */
     public List<Integer> getTousLesIdArbres() {
         List<Integer> idArbres = new ArrayList<>();
 
         String query = """
-        SELECT DISTINCT p.id_arbre
-        FROM personne p
-        JOIN utilisateur u ON u.id_personne = p.id
-        WHERE p.id_arbre IS NOT NULL
-          AND u.role = 'utilisateur'
-          AND u.statut = 'valide'
-    """;
+            SELECT DISTINCT p.id_arbre
+            FROM personne p
+            JOIN utilisateur u ON u.id_personne = p.id
+            WHERE p.id_arbre IS NOT NULL
+              AND u.role = 'utilisateur'
+              AND u.statut = 'valide'
+        """;
 
         try (Connection conn = Database.getConnection();
              PreparedStatement ps = conn.prepareStatement(query);
@@ -600,6 +623,4 @@ public class ArbreDAO {
 
         return idArbres;
     }
-
-
 }
