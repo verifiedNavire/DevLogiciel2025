@@ -2,31 +2,26 @@ package com.example.projet_ing1;
 
 import java.sql.Date;
 
-/**
- * Classe représentant une personne dans l’arbre généalogique.
- * Elle peut être un simple nœud (non inscrit) ou un utilisateur inscrit avec compte.
- */
 public class Personne {
-
-    // === Attributs ===
-    private int id;                    // Identifiant unique dans la base de données
-    private String nom;                // Nom de famille de la personne
-    private String prenom;             // Prénom de la personne
-    private Date dateNaissance;        // Date de naissance (peut être null si inconnue)
-    private String motDePasse;         // Mot de passe si la personne est un utilisateur
-    private boolean inscrit;           // Vrai si la personne a un compte utilisateur
-    private String photo;              // Nom du fichier image associé à la personne
-    private Integer niveau;            // Niveau généalogique (0 = racine, 1 = enfants, etc.)
+    // --- Attributs ---
+    private int id;                    // Identifiant unique de la personne
+    private String nom;                // Nom de famille
+    private String prenom;             // Prénom
+    private Date dateNaissance;        // Date de naissance
+    private String motDePasse;         // Mot de passe (si utilisateur inscrit)
+    private boolean inscrit;           // Indique si la personne a un compte actif (true) ou est juste un nœud dans l’arbre (false)
+    private String photo;              // Nom du fichier image associé
+    private Integer niveau;            // Niveau dans l’arbre (0 = racine, 1 = enfants, etc.)
+    private int idArbre;
+    private String securiteSociale;
+    private String nationalite;
+    private String fichierIdentite;  // peut être null
     private String visibilite;
-    private Integer idarbre;
 
-    // === Constructeurs ===
+    // --- Constructeurs ---
 
-    /**
-     * Constructeur complet avec tous les champs.
-     */
-    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse,
-                    boolean inscrit, String photo, Integer niveau) {
+    // Constructeur complet avec tous les champs, y compris le niveau
+    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo, Integer niveau) {
         this.id = id;
         this.nom = nom;
         this.prenom = prenom;
@@ -37,40 +32,12 @@ public class Personne {
         this.niveau = niveau;
     }
 
-    /**
-     * Constructeur complet avec tous les champs et identifiant de l'arbre
-     */
-    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo, Integer niveau, String visibilite) {
-        this.id = id;
-        this.nom = nom;
-        this.prenom = prenom;
-        this.dateNaissance = dateNaissance;
-        this.motDePasse = motDePasse;
-        this.inscrit = inscrit;
-        this.photo = photo;
-        this.niveau = niveau;
-        this.visibilite = visibilite;
-    }
-
-    /**
-     * Constructeur qui récupère l'identifiant de l'utilisateur et identifiant de l'arbre
-     */
-    public Personne(int id, int idarbre) {
-        this.id = id;
-        this.idarbre = idarbre;
-    }
-
-    /**
-     * Constructeur sans le niveau, utile lors d’une création initiale.
-     */
-    public Personne(int id, String nom, String prenom, Date dateNaissance,
-                    String motDePasse, boolean inscrit, String photo) {
+    // Constructeur sans le niveau (utile pour insertion initiale)
+    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo) {
         this(id, nom, prenom, dateNaissance, motDePasse, inscrit, photo, null);
     }
 
-    /**
-     * Constructeur minimal pour afficher ou récupérer une personne simple.
-     */
+    // Constructeur simplifié avec juste l’essentiel
     public Personne(int id, String nom, String prenom, boolean inscrit) {
         this.id = id;
         this.nom = nom;
@@ -78,12 +45,10 @@ public class Personne {
         this.inscrit = inscrit;
     }
 
-    /**
-     * Constructeur vide, utile pour l’initialisation manuelle ou JDBC.
-     */
+    // Constructeur vide (utile pour setter manuels ou pour JDBC)
     public Personne() {}
 
-    // === Getters ===
+    // --- Getters ---
 
     public int getId() {
         return id;
@@ -117,19 +82,12 @@ public class Personne {
         return niveau;
     }
 
-    /**
-     * Retourne une version lisible du nom complet.
-     * Format : "Prénom Nom"
-     */
+    // Retourne le nom complet sous la forme "Prénom Nom"
     public String getNomComplet() {
         return prenom + " " + nom;
     }
 
-    public String getVisibilite() { return visibilite; }
-
-    public Integer getIdarbre() { return idarbre; }
-
-    // === Setters ===
+    // --- Setters ---
 
     public void setId(int id) {
         this.id = id;
@@ -163,14 +121,23 @@ public class Personne {
         this.niveau = niveau;
     }
 
-    public void setVisibilite(String visibilite) { this.visibilite = visibilite; }
-
-    /**
-     * Représentation textuelle d’une personne (utilisée dans les ComboBox par exemple).
-     * Affiche le prénom, le nom, et la date si disponible.
-     */
     @Override
     public String toString() {
         return prenom + " " + nom + (dateNaissance != null ? " (" + dateNaissance + ")" : "");
     }
+    public int getIdArbre() { return idArbre; }
+    public void setIdArbre(int idArbre) { this.idArbre = idArbre; }
+
+    public String getSecuriteSociale() { return securiteSociale; }
+    public void setSecuriteSociale(String securiteSociale) { this.securiteSociale = securiteSociale; }
+
+    public String getNationalite() { return nationalite; }
+    public void setNationalite(String nationalite) { this.nationalite = nationalite; }
+
+    public String getFichierIdentite() { return fichierIdentite; }
+    public void setFichierIdentite(String fichierIdentite) { this.fichierIdentite = fichierIdentite; }
+
+    public String getVisibilite() { return visibilite; }
+    public void setVisibilite(String visibilite) { this.visibilite = visibilite; }
+
 }
