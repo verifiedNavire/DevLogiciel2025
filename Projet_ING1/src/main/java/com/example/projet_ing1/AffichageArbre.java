@@ -193,7 +193,7 @@ public class AffichageArbre extends Application {
         afficherArbreDepuisBdd(arbrePane);
 
         // Conteneur global
-        VBox root = new VBox(navbar, arbrePane);
+        VBox root = new VBox(navbar, arbrePane,zoomBox);
         root.setStyle("-fx-background-color: #f0f0f0;");
         VBox.setVgrow(arbrePane, Priority.ALWAYS);
 
