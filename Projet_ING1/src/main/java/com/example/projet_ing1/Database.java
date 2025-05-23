@@ -19,6 +19,6 @@ public class Database {
         String url = "jdbc:mysql://localhost:3306/arbre_genealogique";
 
         // Connexion avec l’utilisateur root, sans mot de passe (à adapter si besoin)
-        return DriverManager.getConnection(url, "root", "nei4eihaeL4o");
+        return DriverManager.getConnection(url, "root", "");
     }
 }
