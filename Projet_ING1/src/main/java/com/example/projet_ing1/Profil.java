@@ -18,18 +18,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
-/**
- * Interface de gestion du profil utilisateur (nom, prénom, photo).
- * Permet la visualisation et la mise à jour de ses informations personnelles.
- */
 public class Profil extends Application {
 
-    // Répertoire local où seront stockées les photos de profil
     private static final String PROFIL_DIR = "src/main/resources/images/profils/";
 
     @Override
     public void start(Stage stage) {
-        // Récupération de l’ID utilisateur via la session
         int userId = Session.getUserId();
         if (userId == -1) {
             alert("Non connecté", "Veuillez vous connecter.");
@@ -38,34 +32,65 @@ public class Profil extends Application {
 
         // Champs du formulaire
         TextField nomField = new TextField();
+        nomField.setDisable(true);
         TextField prenomField = new TextField();
-        TextField photoField = new TextField(); // contient uniquement le nom du fichier
-        ImageView imageView = new ImageView(); // affiche la photo actuelle
-        ToggleGroup visibiliteGroup = new ToggleGroup(); // Ajout de boutons radio pour changer sa visibilité pour les autres personnes
+        prenomField.setDisable(true);
+
+        TextField emailField = new TextField();
+        TextField photoField = new TextField();
+        photoField.setEditable(false);
+        ImageView imageView = new ImageView();
+
+        TextField codePriveField = new TextField();
+        codePriveField.setDisable(true);
+
+        TextField nationaliteField = new TextField();
+        TextField numSecuField = new TextField();
+
+        DatePicker dateNaissancePicker = new DatePicker();
+        dateNaissancePicker.setDisable(true);
+
+        ToggleGroup visibiliteGroup = new ToggleGroup();
         RadioButton privateRadio = new RadioButton("private");
         RadioButton publicRadio = new RadioButton("public");
         privateRadio.setToggleGroup(visibiliteGroup);
         publicRadio.setToggleGroup(visibiliteGroup);
 
-        // Chargement des informations de l’utilisateur connecté
+        // Charger les données utilisateur depuis la BDD
         try (Connection conn = Database.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id = ?");
+            PreparedStatement ps = conn.prepareStatement(
+                    "SELECT p.*, u.email, u.code_prive FROM personne p LEFT JOIN utilisateur u ON p.id = u.id_personne WHERE p.id = ?"
+            );
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
 
             if (rs.next()) {
                 nomField.setText(rs.getString("nom"));
                 prenomField.setText(rs.getString("prenom"));
+                emailField.setText(rs.getString("email"));
                 photoField.setText(rs.getString("photo"));
+                codePriveField.setText(rs.getString("code_prive"));
+                nationaliteField.setText(rs.getString("nationalite"));
+                numSecuField.setText(rs.getString("securite_sociale"));
+                if (rs.getDate("date_naissance") != null) {
+                    dateNaissancePicker.setValue(rs.getDate("date_naissance").toLocalDate());
+                }
 
-                // Si une photo existe, on l’affiche dans l’imageView
+                String visibilite = rs.getString("visibilite");
+                if ("public".equalsIgnoreCase(visibilite)) {
+                    publicRadio.setSelected(true);
+                } else {
+                    privateRadio.setSelected(true);
+                }
+
+                // Afficher la photo si elle existe
                 String photo = rs.getString("photo");
                 if (photo != null && !photo.isEmpty()) {
                     try {
                         Image img = new Image(getClass().getResource("/images/profils/" + photo).toExternalForm(), 100, 100, true, true);
                         imageView.setImage(img);
                     } catch (Exception e) {
-                        e.printStackTrace(); // gestion d’image invalide
+                        e.printStackTrace();
                     }
                 }
             }
@@ -75,7 +100,7 @@ public class Profil extends Application {
             return;
         }
 
-        // Bouton pour choisir une nouvelle photo
+        // Bouton choisir photo
         Button choisirPhotoBtn = new Button("Choisir une photo");
         choisirPhotoBtn.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
@@ -83,21 +108,16 @@ public class Profil extends Application {
             fileChooser.getExtensionFilters().addAll(
                     new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg")
             );
-
             File selectedFile = fileChooser.showOpenDialog(stage);
             if (selectedFile != null) {
                 try {
                     String nomFichier = selectedFile.getName();
                     File dest = new File(PROFIL_DIR + nomFichier);
-
-                    // Copie réelle du fichier dans le dossier ressources
                     Files.copy(selectedFile.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
 
-                    // Mise à jour des champs UI
                     photoField.setText(nomFichier);
                     Image img = new Image(dest.toURI().toString(), 100, 100, true, true);
                     imageView.setImage(img);
-
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     alert("Erreur", "Impossible de copier l'image.");
@@ -105,59 +125,84 @@ public class Profil extends Application {
             }
         });
 
-        // Bouton pour sauvegarder les modifications dans la base
+        // Bouton changer mot de passe
+        Button changerMdpBtn = new Button("Changer mot de passe");
+        changerMdpBtn.setOnAction(e -> {
+            try {
+                new ChangerMdp().start(new Stage());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                alert("Erreur", "Impossible d'ouvrir la fenêtre de changement de mot de passe.");
+            }
+        });
+
+        // Bouton enregistrer
         Button enregistrer = new Button("Enregistrer");
         enregistrer.setOnAction(e -> {
             try (Connection conn = Database.getConnection()) {
-                PreparedStatement ps = conn.prepareStatement("UPDATE personne SET nom = ?, prenom = ?, photo = ?, visibilite = ? WHERE id = ?");
-                ps.setString(1, nomField.getText());
-                ps.setString(2, prenomField.getText());
-                ps.setString(3, photoField.getText());
+                PreparedStatement ps = conn.prepareStatement(
+                        "UPDATE personne SET photo = ?, visibilite = ?, nationalite = ?, securite_sociale = ? WHERE id = ?"
+                );
+                ps.setString(1, photoField.getText());
                 String visibiliteChoisie = ((RadioButton) visibiliteGroup.getSelectedToggle()).getText().toLowerCase();
-                ps.setString(4, visibiliteChoisie);
+                ps.setString(2, visibiliteChoisie);
+                ps.setString(3, nationaliteField.getText());
+                ps.setString(4, numSecuField.getText());
                 ps.setInt(5, userId);
                 ps.executeUpdate();
 
+                PreparedStatement psEmail = conn.prepareStatement(
+                        "UPDATE utilisateur SET email = ? WHERE id_personne = ?"
+                );
+                psEmail.setString(1, emailField.getText());
+                psEmail.setInt(2, userId);
+                psEmail.executeUpdate();
+
                 alert("Succès", "Profil mis à jour !");
                 stage.close();
-
             } catch (Exception ex) {
                 ex.printStackTrace();
                 alert("Erreur", "Échec de la mise à jour.");
             }
         });
 
-        // Bouton pour fermer la fenêtre
+        // Bouton retour
         Button retourBtn = new Button("Retour");
         retourBtn.setOnAction(e -> stage.close());
 
-        // Organisation des boutons horizontalement
         HBox boutons = new HBox(10, enregistrer, retourBtn);
         boutons.setAlignment(Pos.CENTER);
 
-        // Layout principal de la fenêtre
-        VBox layout = new VBox(10,
+        // Layout du formulaire
+        VBox formLayout = new VBox(10,
                 new Label("Nom :"), nomField,
                 new Label("Prénom :"), prenomField,
+                new Label("Date de naissance :"), dateNaissancePicker,
+                new Label("Code privé :"), codePriveField,
+                new Label("Email :"), emailField,
+                new Label("Nationalité :"), nationaliteField,
+                new Label("Numéro de sécurité sociale :"), numSecuField,
                 new Label("Nom du fichier photo :"), photoField,
                 choisirPhotoBtn,
                 imageView,
                 new Label("Visibilité du profil :"),
                 new HBox(10, privateRadio, publicRadio),
-                boutons);
-        layout.setPadding(new Insets(20));
-        layout.setAlignment(Pos.CENTER);
+                changerMdpBtn,
+                boutons
+        );
+        formLayout.setPadding(new Insets(20));
+        formLayout.setAlignment(Pos.CENTER);
 
-        // Affichage de la scène
-        Scene scene = new Scene(layout, 400, 500);
+        ScrollPane scrollPane = new ScrollPane(formLayout);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+
+        Scene scene = new Scene(scrollPane, 450, 600);
         stage.setTitle("Mon Profil");
         stage.setScene(scene);
         stage.show();
     }
 
-    /**
-     * Affiche une alerte JavaFX simple.
-     */
     private void alert(String titre, String msg) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(titre);
