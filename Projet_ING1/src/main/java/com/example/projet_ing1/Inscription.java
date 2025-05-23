@@ -126,6 +126,10 @@ public class Inscription extends Application {
                 showAlert(Alert.AlertType.ERROR, "Veuillez entrer une adresse e-mail valide.");
                 return;
             }
+            if (dateNaissance.isEmpty()) {
+                showAlert(Alert.AlertType.ERROR, "Veuillez entrer votre date de naissance pour activer votre compte.");
+                return;
+            }
 
             // Copie la photo dans le dossier ressources
             if (selectedImageFile != null) {
@@ -151,24 +155,30 @@ public class Inscription extends Application {
                 int arbreId = -1;
                 int utilisateurId = -1;
 
-                // Vérifie si la personne existe déjà (non inscrite)
+                // Vérifie si la personne existe déjà DANS PERSONNE(non inscrite)
                 PreparedStatement check = conn.prepareStatement(
-                        "SELECT id FROM personne WHERE nom = ? AND prenom = ? AND inscrit = FALSE"
+                        "SELECT id FROM personne WHERE nom = ? AND prenom = ? AND date_naissance = ? AND inscrit = FALSE"
                 );
                 check.setString(1, nom);
                 check.setString(2, prenom);
+                check.setString(3, dateNaissance);
                 ResultSet rs = check.executeQuery();
 
                 if (rs.next()) {
-                    // 🔁 Mise à jour de la personne existante
+                    // MAJ de la personne existante
                     personneId = rs.getInt("id");
                     PreparedStatement update = conn.prepareStatement(
-                            "UPDATE personne SET date_naissance = ?, mot_de_passe = ?, photo = ?, inscrit = TRUE WHERE id = ?"
+                            "UPDATE personne SET date_naissance = ?, mot_de_passe = ?, photo = ?, inscrit = TRUE, securite_sociale = ?, nationalite = ?, fichier_identite = ? WHERE id = ?"
                     );
                     update.setString(1, dateNaissance.isEmpty() ? null : dateNaissance);
                     update.setString(2, mdp);
                     update.setString(3, nomImageFinale);
                     update.setInt(4, personneId);
+                    update.setString(4, secu);
+                    update.setString(5, nationalite);
+                    update.setString(6, fichierIdentite);
+                    update.setInt(7, personneId);
+
                     update.executeUpdate();
 
                     // On récupère l'arbre lié à cette personne
