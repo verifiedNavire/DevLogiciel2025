@@ -541,47 +541,31 @@ public class ArbreDAO {
         relations.clear();
 
         try (Connection conn = Database.getConnection()) {
-            // 1. Charger toutes les personnes associées à l'id_arbre donné
-            PreparedStatement ps = conn.prepareStatement("SELECT * FROM personne WHERE id_arbre = ?");
+            // 1. Vérifier que l'arbre existe (optionnel, à garder si tu veux une vérification explicite)
+            PreparedStatement ps = conn.prepareStatement("SELECT id FROM arbre WHERE id = ?");
             ps.setInt(1, idArbre);
             ResultSet rs = ps.executeQuery();
-
-            Set<Integer> ids = new HashSet<>();
-            while (rs.next()) {
-                Personne p = new Personne(
-                        rs.getInt("id"),
-                        rs.getString("nom"),
-                        rs.getString("prenom"),
-                        rs.getDate("date_naissance"),
-                        rs.getString("mot_de_passe"),
-                        rs.getBoolean("inscrit"),
-                        rs.getString("photo"),
-                        rs.getObject("niveau", Integer.class)
-                );
-                personnes.put(p.getId(), p);
-                ids.add(p.getId());
+            if (!rs.next()) {
+                System.out.println("Arbre avec id " + idArbre + " non trouvé.");
+                return;
             }
 
-            // 2. Charger les relations parent-enfant entre ces personnes
-            if (!ids.isEmpty()) {
-                String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
-                ps = conn.prepareStatement(
-                        "SELECT * FROM lien_parent WHERE id_enfant IN (" + placeholders + ")"
-                );
-                int i = 1;
-                for (int id : ids) {
-                    ps.setInt(i++, id);
-                }
+            // 2. Récupérer tous les IDs des personnes de cet arbre
+            ps = conn.prepareStatement("SELECT id FROM personne WHERE id_arbre = ?");
+            ps.setInt(1, idArbre);
+            rs = ps.executeQuery();
 
-                rs = ps.executeQuery();
-                while (rs.next()) {
-                    int parentId = rs.getInt("id_parent");
-                    int enfantId = rs.getInt("id_enfant");
+            Set<Integer> dejaVus = new HashSet<>();
+            while (rs.next()) {
+                int personneId = rs.getInt("id");
 
-                    // Vérifie que le parent est aussi dans le même arbre (sécurité)
-                    if (ids.contains(parentId)) {
-                        relations.computeIfAbsent(parentId, k -> new ArrayList<>()).add(enfantId);
-                    }
+                // Pour éviter de charger plusieurs fois les mêmes personnes
+                if (!dejaVus.contains(personneId)) {
+                    // Appeler la méthode existante
+                    chargerFamillePourUtilisateur(personneId);
+
+                    // Mémoriser toutes les personnes chargées par cette branche
+                    dejaVus.addAll(personnes.keySet());
                 }
             }
 
