@@ -60,7 +60,7 @@ public class Personne {
 
         public Personne(int id, int idarbre) {
         this.id = id;
-        this.idarbre = idarbre;
+        this.idArbre = idarbre;
     }
     
     // Constructeur vide (utile pour setter manuels ou pour JDBC)
