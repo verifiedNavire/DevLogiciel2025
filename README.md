@@ -10,6 +10,7 @@ Application JavaFX permettant aux utilisateurs de créer, visualiser et gérer l
 
 Le point d'entrée de l'application est la classe suivante :  
 `src/main/java/com/example/projet_ing1/LoginApp.java`
+Lorsque vous ouvrez le projet dans IntelliJ, veillez à ouvrir le dossier PROJET_ING1 pour que la structure soit correctement reconnue.
 
 Pour lancer l'application, exécutez **`LoginApp`**. C'est à partir de cette classe que s'affiche l'interface de connexion, permettant ensuite d'accéder à toutes les fonctionnalités selon le rôle de l'utilisateur (admin ou simple utilisateur).
 
