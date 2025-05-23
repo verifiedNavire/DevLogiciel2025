@@ -71,9 +71,12 @@ Placer dans le dossier `/lib` :
 
 ## Auteurs
 
-Saidi, Besma
-Paimba-Sail, Owen
-Fowdar, Heeshaam
-Cupessala, Alvariane 
-Fowdar, Heeshaam
-Ocloo, Leslie
+Saidi Besma
+
+Paimba-Sail Owen
+
+Fowdar Heeshaam
+
+Cupessala Alvariane 
+
+Ocloo Leslie
