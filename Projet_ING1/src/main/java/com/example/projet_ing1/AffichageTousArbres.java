@@ -59,15 +59,25 @@ public class AffichageTousArbres extends Application {
         pane.setBackground(new Background(background));
 
         ArbreDAO dao = new ArbreDAO();
-        dao.chargerFamillePourArbre(idArbre);
+        dao.mettreAJourNiveaux();
+        dao.chargerFamillePourArbre(idArbre);  // nouvelle méthode qui appelle chargerFamillePourUtilisateur pour chaque personne
 
-        Map<Integer, VBox> noeuds = new HashMap<>();
-        Map<Integer, List<Personne>> personnesParNiveau = new TreeMap<>();
+        ScrollPane scrollPane = new ScrollPane();
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.prefWidthProperty().bind(pane.widthProperty());
+        scrollPane.prefHeightProperty().bind(pane.heightProperty());
+
+        Group arbreGroup = new Group();
 
         double spacingY = 180;
         double spacingX = 180;
         double nodeWidth = 120;
         double nodeHeight = 140;
+
+        Map<Integer, VBox> noeuds = new HashMap<>();
+        Map<Integer, List<Personne>> personnesParNiveau = new TreeMap<>();
 
         for (Personne p : dao.personnes.values()) {
             if (p.getNiveau() != null) {
@@ -75,7 +85,6 @@ public class AffichageTousArbres extends Application {
             }
         }
 
-        Group arbreGroup = new Group();
         int minNiveau = personnesParNiveau.keySet().stream().min(Integer::compareTo).orElse(0);
         int maxNiveau = personnesParNiveau.keySet().stream().max(Integer::compareTo).orElse(0);
 
@@ -84,7 +93,7 @@ public class AffichageTousArbres extends Application {
             if (personnes.isEmpty()) continue;
 
             double totalWidth = personnes.size() * (nodeWidth + spacingX) - spacingX;
-            double startX = (pane.getWidth() <= 0 ? 1200 : pane.getWidth() - totalWidth) / 2;
+            double startX = (totalWidth > 0) ? (Math.max(pane.getWidth(), 1200) - totalWidth) / 2 : 50;
             double y = 50 + (niveau - minNiveau) * spacingY;
             double x = Math.max(50, startX);
 
@@ -99,7 +108,6 @@ public class AffichageTousArbres extends Application {
             }
         }
 
-        // Lignes entre parents et enfants
         Set<String> couplesDessines = new HashSet<>();
 
         for (Map.Entry<Integer, List<Integer>> entry : dao.relations.entrySet()) {
@@ -133,28 +141,20 @@ public class AffichageTousArbres extends Application {
                 double centreX = compteur > 0 ? sommeX / compteur : parent1Box.getLayoutX() + nodeWidth / 2;
                 double parentY = parent1Box.getLayoutY();
 
-                double x1 = centreX - 70;
-                double x2 = centreX + 70;
+                double x1 = parent1Box.getLayoutX() + nodeWidth / 2;
+                double x2 = parent2Box != null ? parent2Box.getLayoutX() + nodeWidth / 2 : x1;
 
-                parent1Box.setLayoutX(x1 - nodeWidth / 2);
-                parent1Box.setLayoutY(parentY);
-
-                if (parent2Box != null) {
-                    parent2Box.setLayoutX(x2 - nodeWidth / 2);
-                    parent2Box.setLayoutY(parentY);
-                }
-
-                double y = parent1Box.getLayoutY() + nodeHeight;
+                if (enfantsCommuns.size() < 1 || couplesDessines.contains(coupleKey)) continue;
 
                 if (parent2Box != null) {
-                    Line lienParents = new Line(x1, y + 10, x2, y + 10);
+                    Line lienParents = new Line(x1, parentY + nodeHeight + 10, x2, parentY + nodeHeight + 10);
                     lienParents.setStroke(Color.DARKGRAY);
                     lienParents.setStrokeWidth(2);
                     arbreGroup.getChildren().add(lienParents);
                 }
 
                 double centreXCouple = parent2Box != null ? (x1 + x2) / 2 : x1;
-                double centreY = y + 10;
+                double centreY = parentY + nodeHeight + 10;
 
                 Line ligneVersEnfants = new Line(centreXCouple, centreY, centreXCouple, centreY + 30);
                 arbreGroup.getChildren().add(ligneVersEnfants);
@@ -176,13 +176,22 @@ public class AffichageTousArbres extends Application {
             }
         }
 
+        // Taille automatique en fonction du nombre de niveaux
+        double totalHeight = (maxNiveau - minNiveau + 2) * spacingY;
         Region bounds = new Region();
-        bounds.setMinSize(2000, (maxNiveau - minNiveau + 2) * spacingY);
+        bounds.setMinSize(3000, totalHeight);
         bounds.setMouseTransparent(true);
         arbreGroup.getChildren().add(bounds);
 
-        pane.getChildren().add(arbreGroup);
+        scrollPane.setContent(arbreGroup);
+        scrollPane.setPannable(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        pane.getChildren().clear();
+        pane.getChildren().add(scrollPane);
     }
+
 
     private VBox creerLabel(Personne p) {
         VBox box = new VBox(5);
