@@ -32,6 +32,19 @@ public class Personne {
         this.niveau = niveau;
     }
 
+    // Constructeur complet avec tous les champs, y compris la visibilité de la personne dans l'arbre
+    public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo, Integer niveau, String visibilite) {
+        this.id = id;
+        this.nom = nom;
+        this.prenom = prenom;
+        this.dateNaissance = dateNaissance;
+        this.motDePasse = motDePasse;
+        this.inscrit = inscrit;
+        this.photo = photo;
+        this.niveau = niveau;
+        this.visibilite = visibilite;
+    }
+
     // Constructeur sans le niveau (utile pour insertion initiale)
     public Personne(int id, String nom, String prenom, Date dateNaissance, String motDePasse, boolean inscrit, String photo) {
         this(id, nom, prenom, dateNaissance, motDePasse, inscrit, photo, null);
@@ -45,6 +58,11 @@ public class Personne {
         this.inscrit = inscrit;
     }
 
+        public Personne(int id, int idarbre) {
+        this.id = id;
+        this.idarbre = idarbre;
+    }
+    
     // Constructeur vide (utile pour setter manuels ou pour JDBC)
     public Personne() {}
 
